@@ -98,3 +98,95 @@ public struct ForEach<Data, Content> where Data: Sequence {
         self.content = content
     }
 }
+
+///
+
+/**
+ ```
+ struct ViewWithEnvironmentValue<Content, V>: View where Content: View {
+     let keyPath: WritableKeyPath<EnvironmentValues, V>
+     let environmentValue: V
+     let content: Content
+
+     var body: Never { fatalError() }
+
+     struct ViewInterpolation: ViewInterpolationProtocol {
+         public typealias View = ViewWithEnvironmentValue<Content, V>
+         public typealias ModifyContent = Content.ViewInterpolation.ModifyContent
+         let keyPath: WritableKeyPath<EnvironmentValues, V>
+         let value: V
+         var base: Content.ViewInterpolation
+
+         public init(_ view: View) {
+             self.keyPath = view.keyPath
+             self.value = view.environmentValue
+             self.base = EnvironmentValues.withValue(view.environmentValue, at: view.keyPath) {
+                 Content.ViewInterpolation(view.content)
+             }
+         }
+
+         public mutating func modify<M>(_ modifier: M) where M : CoreUI.ViewModifier, ModifyContent == M.Modifiable {
+             base.modify(modifier)
+         }
+
+         public mutating func build() -> Content.ViewInterpolation.Result {
+             return EnvironmentValues.withValue(value, at: keyPath) {
+                 base.build()
+             }
+         }
+     }
+ }
+
+ extension View {
+     public func environment<V>(
+         _ keyPath: WritableKeyPath<EnvironmentValues, V>,
+         _ value: V
+     ) -> some View {
+         ViewWithEnvironmentValue(keyPath: keyPath, environmentValue: value, content: self)
+     }
+ }
+ ```
+*/
+
+public protocol EnvironmentKey {
+    associatedtype Value
+    static var defaultValue: Value { get }
+}
+
+public struct EnvironmentValues {
+    private var storage: [ObjectIdentifier: Any]
+
+    public init() {
+        self.storage = [:]
+    }
+
+    public subscript<Key>(key: Key.Type) -> Key.Value where Key: EnvironmentKey {
+        get { self.storage[ObjectIdentifier(key)].map { $0 as! Key.Value } ?? Key.defaultValue }
+        set { self.storage[ObjectIdentifier(key)] = newValue }
+    }
+}
+
+extension EnvironmentValues {
+    static var global: Self = Self()
+
+    public static func withValue<Value, Result>(_ value: Value, at keyPath: WritableKeyPath<Self, Value>, operation: () -> Result) -> Result {
+        let oldValue = global[keyPath: keyPath]
+        global[keyPath: keyPath] = value
+        let result = operation()
+        global[keyPath: keyPath] = oldValue
+        return result
+    }
+}
+
+@propertyWrapper
+public struct Environment<Value> {
+    let keyPath: KeyPath<EnvironmentValues, Value>
+
+    public init(_ keyPath: KeyPath<EnvironmentValues, Value>) {
+        self.keyPath = keyPath
+    }
+
+    public var wrappedValue: Value {
+        EnvironmentValues.global[keyPath: keyPath]
+    }
+}

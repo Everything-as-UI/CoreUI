@@ -87,7 +87,7 @@ public struct AnyInterpolation<ModifyContent, Result>/*: ViewInterpolationProtoc
 /**
  ```
  public struct TupleView<T>: View {
-     let build: () -> [Result]
+     let acceptor: (ViewVisitor) -> Void
      public var body: Never { fatalError() }
      public struct ViewInterpolation: ViewInterpolationProtocol {
          public typealias View = TupleView<T>
@@ -102,7 +102,9 @@ public struct AnyInterpolation<ModifyContent, Result>/*: ViewInterpolationProtoc
              modifier.modify(content: &attributes)
          }
          public mutating func build() -> Result {
-             Result(nestedResult: document.build(), attributes: attributes)
+            let visitor = SomeViewVisitor()
+            view.acceptor(visitor)
+            return Result(nestedResult: visitor.build(), attributes: attributes)
          }
      }
  }
