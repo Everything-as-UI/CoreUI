@@ -153,16 +153,35 @@ public protocol EnvironmentKey {
     static var defaultValue: Value { get }
 }
 
-public struct EnvironmentValues {
-    private var storage: [ObjectIdentifier: Any]
+public protocol Combinable {
+    func combined(with other: Self) -> Self
+}
 
-    public init() {
-        self.storage = [:]
-    }
+public protocol InheritableEnvironmentKey {
+    associatedtype Value: Combinable
+    static var defaultValue: Value { get }
+}
+
+public struct EnvironmentValues {
+    private var storage: [ObjectIdentifier: Any] = [:]
+
+    public init() {}
 
     public subscript<Key>(key: Key.Type) -> Key.Value where Key: EnvironmentKey {
-        get { self.storage[ObjectIdentifier(key)].map { $0 as! Key.Value } ?? Key.defaultValue }
-        set { self.storage[ObjectIdentifier(key)] = newValue }
+        set { storage[ObjectIdentifier(key)] = newValue }
+        get {
+            storage[ObjectIdentifier(key)].map { $0 as! Key.Value } ?? Key.defaultValue
+        }
+    }
+
+    public subscript<Key>(key: Key.Type) -> Key.Value where Key: InheritableEnvironmentKey {
+        set {
+            let id = ObjectIdentifier(key)
+            storage[id] = newValue.combined(with: storage[id].map { $0 as! Key.Value } ?? Key.defaultValue)
+        }
+        get {
+            storage[ObjectIdentifier(key)].map { $0 as! Key.Value } ?? Key.defaultValue
+        }
     }
 }
 
@@ -188,5 +207,17 @@ public struct Environment<Value> {
 
     public var wrappedValue: Value {
         EnvironmentValues.global[keyPath: keyPath]
+    }
+}
+
+public struct ViewWithEnvironmentValue<Content, V> {
+    public let keyPath: WritableKeyPath<EnvironmentValues, V>
+    public let value: V
+    public let content: Content
+
+    public init(_ keyPath: WritableKeyPath<EnvironmentValues, V>, value: V, content: Content) {
+        self.keyPath = keyPath
+        self.value = value
+        self.content = content
     }
 }
