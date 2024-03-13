@@ -167,6 +167,13 @@ public struct EnvironmentValues {
 
     public init() {}
 
+    subscript<Object>(key: Object.Type) -> Object? {
+        set { storage[ObjectIdentifier(key)] = newValue }
+        get {
+            storage[ObjectIdentifier(key)].map({ $0 as! Object })
+        }
+    }
+
     public subscript<Key>(key: Key.Type) -> Key.Value where Key: EnvironmentKey {
         set { storage[ObjectIdentifier(key)] = newValue }
         get {
@@ -195,6 +202,14 @@ extension EnvironmentValues {
         global[keyPath: keyPath] = oldValue
         return result
     }
+
+    public static func withObject<Object, Result>(_ object: Object, operation: () -> Result) -> Result {
+        let oldValue = global[Object.self]
+        global[Object.self] = object
+        let result = operation()
+        global[Object.self] = oldValue
+        return result
+    }
 }
 
 @propertyWrapper
@@ -210,6 +225,20 @@ public struct Environment<Value> {
     }
 }
 
+@propertyWrapper
+public struct EnvironmentObject<Object> {
+
+    public init() {}
+    public init(_: Object.Type) {}
+
+    public var wrappedValue: Object {
+        guard let object = EnvironmentValues.global[Object.self] else {
+            fatalError("Environment object with type \(Object.self) does not found")
+        }
+        return object
+    }
+}
+
 public struct ViewWithEnvironmentValue<Content, V> {
     public let keyPath: WritableKeyPath<EnvironmentValues, V>
     public let value: V
@@ -217,6 +246,16 @@ public struct ViewWithEnvironmentValue<Content, V> {
 
     public init(_ keyPath: WritableKeyPath<EnvironmentValues, V>, value: V, content: Content) {
         self.keyPath = keyPath
+        self.value = value
+        self.content = content
+    }
+}
+
+public struct ViewWithEnvironmentObject<Content, V> {
+    public let value: V
+    public let content: Content
+
+    public init(_ value: V, content: Content) {
         self.value = value
         self.content = content
     }
