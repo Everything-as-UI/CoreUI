@@ -184,7 +184,7 @@ public struct EnvironmentValues {
     public subscript<Key>(key: Key.Type) -> Key.Value where Key: InheritableEnvironmentKey {
         set {
             let id = ObjectIdentifier(key)
-            storage[id] = newValue.combined(with: storage[id].map { $0 as! Key.Value } ?? Key.defaultValue)
+            storage[id] = (storage[id].map { $0 as! Key.Value } ?? Key.defaultValue).combined(with: newValue)
         }
         get {
             storage[ObjectIdentifier(key)].map { $0 as! Key.Value } ?? Key.defaultValue

@@ -4,7 +4,7 @@ import CoreUI
  protocol View {
      associatedtype ViewInterpolation: ViewInterpolationProtocol = DefaultViewInterpolation<Self> where ViewInterpolation.View == Self
      associatedtype Body: View
-     var body: View { get }
+     @ViewBuilder var body: View { get }
  }
  ```
  ```
